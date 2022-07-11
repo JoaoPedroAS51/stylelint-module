@@ -1,7 +1,12 @@
 import { resolve } from 'path'
-import { fileURLToPath } from 'url'
-import { defineNuxtModule, addVitePlugin, addWebpackPlugin, isNuxt2, requireModule } from '@nuxt/kit'
-import consola from 'consola'
+import {
+  defineNuxtModule,
+  // addVitePlugin,
+  addWebpackPlugin,
+  isNuxt2,
+  requireModule,
+  useLogger
+} from '@nuxt/kit'
 // import type { Nuxt } from '@nuxt/schema'
 import type { Options as WebpackPlugin } from 'stylelint-webpack-plugin'
 import type { Options as VitePlugin } from 'vite-plugin-stylelint'
@@ -13,7 +18,7 @@ export interface ModuleOptions {
   builder?: 'vite' | 'webpack'
 }
 
-const logger = consola.withScope('nuxt:stylelint')
+const logger = useLogger('nuxt:stylelint')
 
 const resolveBuilder = (options: ModuleOptions, nuxt: any) => {
   let builder = options.builder

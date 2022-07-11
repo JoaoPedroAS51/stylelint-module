@@ -27,7 +27,6 @@
   },
   "dependencies": {
     "@nuxt/kit": "^3.0.0-rc.4",
-    "consola": "^2.15.3",
     "stylelint-webpack-plugin": "^3.3.0",
     "vite-plugin-stylelint": "^2.3.1"
   },
