@@ -4,6 +4,7 @@ import {
   // addVitePlugin,
   addWebpackPlugin,
   isNuxt2,
+  resolveModule,
   requireModule,
   useLogger
 } from '@nuxt/kit'
@@ -72,12 +73,12 @@ export default defineNuxtModule<ModuleOptions>({
       lintDirtyModulesOnly: true
     }
   }),
-  async setup (options, nuxt) {
+  setup (options, nuxt) {
     const builder = resolveBuilder(options, nuxt)
     const stylelintPath = (builder === 'webpack' ? options.webpack.stylelintPath : options.vite.stylelintPath) || 'stylelint'
 
     try {
-      requireModule(stylelintPath)
+      resolveModule(stylelintPath)
     } catch {
       logger.warn(
         `The dependency \`${stylelintPath}\` not found.`,
@@ -110,7 +111,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     if (builder === 'vite') {
-      const vitePluginStylelint = require('vite-plugin-stylelint').default
+      const vitePluginStylelint = requireModule('vite-plugin-stylelint')
 
       // See https://github.com/nuxt/framework/pull/5560
       nuxt.hook('vite:extendConfig', (config, { isClient, isServer }) => {
@@ -128,7 +129,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     if (builder === 'webpack') {
-      const StylelintWebpackPlugin = require('stylelint-webpack-plugin')
+      const StylelintWebpackPlugin = requireModule('stylelint-webpack-plugin')
 
       return addWebpackPlugin(new StylelintWebpackPlugin(options.webpack), {
         server: false
