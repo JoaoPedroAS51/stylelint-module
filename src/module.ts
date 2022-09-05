@@ -1,41 +1,24 @@
 import { resolve } from 'path'
-import { fileURLToPath } from 'url'
-import { defineNuxtModule, addVitePlugin, addWebpackPlugin, isNuxt2, requireModule } from '@nuxt/kit'
-import consola from 'consola'
-// import type { Nuxt } from '@nuxt/schema'
+import {
+  defineNuxtModule,
+  addVitePlugin,
+  addWebpackPlugin,
+  isNuxt2,
+  resolveModule,
+  requireModule,
+  useLogger
+} from '@nuxt/kit'
 import type { Options as WebpackPlugin } from 'stylelint-webpack-plugin'
 import type { Options as VitePlugin } from 'vite-plugin-stylelint'
 import { name, version } from '../package.json'
 
+type Builder = '@nuxt/vite-builder' | '@nuxt/webpack-builder'
 export interface ModuleOptions {
   vite: VitePlugin,
   webpack: WebpackPlugin
-  builder?: 'vite' | 'webpack'
 }
 
-const logger = consola.withScope('nuxt:stylelint')
-
-const resolveBuilder = (options: ModuleOptions, nuxt: any) => {
-  let builder = options.builder
-
-  if (!builder) {
-    switch (nuxt.options.builder) {
-      case '@nuxt/vite-bluider':
-      case 'vite':
-        builder = 'vite'
-        break
-      case '@nuxt/webpack-bluider':
-      case 'webpack':
-        builder = 'webpack'
-        break
-      default:
-        builder = 'vite'
-        break
-    }
-  }
-
-  return builder
-}
+const logger = useLogger('nuxt:stylelint')
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
@@ -67,12 +50,13 @@ export default defineNuxtModule<ModuleOptions>({
       lintDirtyModulesOnly: true
     }
   }),
-  async setup (options, nuxt) {
-    const builder = resolveBuilder(options, nuxt)
-    const stylelintPath = (builder === 'webpack' ? options.webpack.stylelintPath : options.vite.stylelintPath) || 'stylelint'
+  setup (options, nuxt) {
+    const stylelintPath =  (nuxt.options.builder as Builder) === '@nuxt/webpack-builder'
+      ? options.webpack.stylelintPath || 'eslint'
+      : 'stylelint'
 
     try {
-      requireModule(stylelintPath)
+      resolveModule(stylelintPath)
     } catch {
       logger.warn(
         `The dependency \`${stylelintPath}\` not found.`,
@@ -104,30 +88,20 @@ export default defineNuxtModule<ModuleOptions>({
       })
     }
 
-    if (builder === 'vite') {
-      const vitePluginStylelint = require('vite-plugin-stylelint').default
+    if ((nuxt.options.builder as Builder) === '@nuxt/vite-builder') {
+      const vitePluginStylelint = requireModule('vite-plugin-stylelint')
 
-      // See https://github.com/nuxt/framework/pull/5560
-      nuxt.hook('vite:extendConfig', (config, { isClient, isServer }) => {
-        if (isServer) {
-          return
-        }
-
-        config.plugins = config.plugins || []
-        config.plugins.push(vitePluginStylelint(options.vite))
+      return addVitePlugin(vitePluginStylelint(options.vite), {
+        server: false
       })
-
-      // return addVitePlugin(vitePluginStylelint(options.vite), {
-      //   server: false
-      // })
-    }
-
-    if (builder === 'webpack') {
-      const StylelintWebpackPlugin = require('stylelint-webpack-plugin')
+    } else if ((nuxt.options.builder as Builder) === '@nuxt/webpack-builder') {
+      const StylelintWebpackPlugin = requireModule('stylelint-webpack-plugin')
 
       return addWebpackPlugin(new StylelintWebpackPlugin(options.webpack), {
         server: false
       })
+    } else {
+      logger.warn(`Builder ${nuxt.options.builder} not supported.`)
     }
   }
 })
