@@ -1,39 +1,10 @@
 import { resolve } from 'path';
-import { defineNuxtModule, requireModule, isNuxt2, addWebpackPlugin } from '@nuxt/kit';
-import consola from 'consola';
-
-// -- Unbuild CommonJS Shims --
-import __cjs_url__ from 'url';
-import __cjs_path__ from 'path';
-import __cjs_mod__ from 'module';
-const __filename = __cjs_url__.fileURLToPath(import.meta.url);
-const __dirname = __cjs_path__.dirname(__filename);
-const require = __cjs_mod__.createRequire(import.meta.url);
-
+import { useLogger, defineNuxtModule, resolveModule, isNuxt2, requireModule, addVitePlugin, addWebpackPlugin } from '@nuxt/kit';
 
 const name = "@nuxtjs/stylelint-module";
 const version = "4.1.0";
 
-const logger = consola.withScope("nuxt:stylelint");
-const resolveBuilder = (options, nuxt) => {
-  let builder = options.builder;
-  if (!builder) {
-    switch (nuxt.options.builder) {
-      case "@nuxt/vite-bluider":
-      case "vite":
-        builder = "vite";
-        break;
-      case "@nuxt/webpack-bluider":
-      case "webpack":
-        builder = "webpack";
-        break;
-      default:
-        builder = "vite";
-        break;
-    }
-  }
-  return builder;
-};
+const logger = useLogger("nuxt:stylelint");
 const module = defineNuxtModule({
   meta: {
     name,
@@ -64,13 +35,15 @@ const module = defineNuxtModule({
       lintDirtyModulesOnly: true
     }
   }),
-  async setup(options, nuxt) {
-    const builder = resolveBuilder(options, nuxt);
-    const stylelintPath = (builder === "webpack" ? options.webpack.stylelintPath : options.vite.stylelintPath) || "stylelint";
+  setup(options, nuxt) {
+    const stylelintPath = nuxt.options.builder === "@nuxt/webpack-builder" ? options.webpack.stylelintPath || "eslint" : "stylelint";
     try {
-      requireModule(stylelintPath);
+      resolveModule(stylelintPath);
     } catch {
-      logger.warn(`The dependency \`${stylelintPath}\` not found.`, "Please run `yarn add stylelint --dev` or `npm install stylelint --save-dev`");
+      logger.warn(
+        `The dependency \`${stylelintPath}\` not found.`,
+        "Please run `yarn add stylelint --dev` or `npm install stylelint --save-dev`"
+      );
       return;
     }
     const filesToWatch = [
@@ -84,7 +57,9 @@ const module = defineNuxtModule({
     ];
     if (isNuxt2()) {
       nuxt.options.watch = nuxt.options.watch || [];
-      nuxt.options.watch.push(...filesToWatch.map((file) => resolve(nuxt.options.rootDir, file)));
+      nuxt.options.watch.push(
+        ...filesToWatch.map((file) => resolve(nuxt.options.rootDir, file))
+      );
     } else {
       nuxt.hook("builder:watch", async (event, path) => {
         if (event !== "change" && filesToWatch.includes(path)) {
@@ -92,21 +67,18 @@ const module = defineNuxtModule({
         }
       });
     }
-    if (builder === "vite") {
-      const vitePluginStylelint = require("vite-plugin-stylelint").default;
-      nuxt.hook("vite:extendConfig", (config, { isClient, isServer }) => {
-        if (isServer) {
-          return;
-        }
-        config.plugins = config.plugins || [];
-        config.plugins.push(vitePluginStylelint(options.vite));
+    if (nuxt.options.builder === "@nuxt/vite-builder") {
+      const vitePluginStylelint = requireModule("vite-plugin-stylelint");
+      return addVitePlugin(vitePluginStylelint(options.vite), {
+        server: false
       });
-    }
-    if (builder === "webpack") {
-      const StylelintWebpackPlugin = require("stylelint-webpack-plugin");
+    } else if (nuxt.options.builder === "@nuxt/webpack-builder") {
+      const StylelintWebpackPlugin = requireModule("stylelint-webpack-plugin");
       return addWebpackPlugin(new StylelintWebpackPlugin(options.webpack), {
         server: false
       });
+    } else {
+      logger.warn(`Builder ${nuxt.options.builder} not supported.`);
     }
   }
 });
